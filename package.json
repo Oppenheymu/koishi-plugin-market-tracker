@@ -1,20 +1,48 @@
+
 {
   "name": "koishi-plugin-market-tracker",
-  "description": "由market-info启发制作的插件",
-  "version": "0.0.1",
+  "version": "1.0.0",
+  "contributors": [
+    "Oppenheymu <oppenheymu@gmail.com>"
+  ],
   "main": "lib/index.js",
-  "typings": "lib/index.d.ts",
+  "types": "lib/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./lib/index.d.ts",
+      "development": "./src/index.ts",
+      "default": "./lib/index.js"
+    },
+    "./package.json": "./package.json"
+  },
   "files": [
-    "lib",
-    "dist"
+    "lib"
   ],
   "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  },
+  "homepage": "https://github.com/Oppenheymu/koishi-plugin-market-tracker",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Oppenheymu/koishi-plugin-market-tracker.git"
+  },
   "keywords": [
     "chatbot",
     "koishi",
     "plugin"
   ],
+  "scripts": {
+    "build": "tsc -b"
+  },
   "peerDependencies": {
     "koishi": "^4.18.7"
+  },
+  "koishi": {
+    "description": {
+      "en": "HELLO",
+      "zh": "由market-info启发制作的插件"
+    },
+    "service": {}
   }
 }
