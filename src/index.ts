@@ -1,6 +1,6 @@
 import type { SearchObject, SearchResult } from "@koishijs/registry";
-import { type Context, type Dict, deepEqual, pick, sleep } from "koishi";
-import { Config, type Receiver } from "./config";
+import type { Context, Dict } from "koishi";
+import { Config } from "./config";
 
 export { Config };
 export const name = "market-info";
@@ -34,39 +34,11 @@ export function apply(ctx: Context, config: Config) {
 
 		ctx
 			.command("market [name]")
-			.option("receive", "-r", { authority: 3, value: true })
-			.option("receive", "-R", { authority: 3, value: false })
-			.action(async ({ session, options }, name) => {
+			.action(async ({ session }, name) => {
 				if (!session) return;
-				if (typeof options?.receive === "boolean") {
-					const index = config.rules.findIndex((receiver) => {
-						return deepEqual(
-							pick(receiver, ["platform", "selfId", "channelId", "guildId"]),
-							pick(session, ["platform", "selfId", "channelId", "guildId"]),
-						);
-					});
-					if (options.receive) {
-						if (index >= 0) return session.text(".not-modified");
-						if (!session.channelId) return;
-						const receiver: Receiver = {
-							platform: session.platform,
-							selfId: session.selfId,
-							channelId: session.channelId,
-							...(session.guildId ? { guildId: session.guildId } : {}),
-						};
-						config.rules.push(receiver);
-					} else {
-						if (index < 0) return session.text(".not-modified");
-						config.rules.splice(index, 1);
-					}
-					ctx.scope.update(config, false);
-					return session.text(".updated");
-				}
-
 				if (!name) {
 					return session.text(".overview", [Object.values(previous).length]);
 				}
-
 				const data = previous[name];
 				if (!data) return session.text(".not-found", [name]);
 				return session.text(".detail", data);
@@ -118,19 +90,7 @@ export function apply(ctx: Context, config: Config) {
 
 			const content = ["[插件市场更新]", ...diff].join("\n");
 			logger.info(content);
-			const delay = ctx.root.config.delay?.broadcast ?? 0;
-			for (let index = 0; index < config.rules.length; ++index) {
-				if (index && delay) await sleep(delay);
-				const { platform, selfId, channelId, guildId } = config.rules[index];
-				const bot = ctx.bots.find(
-					(bot) => bot.platform === platform && bot.selfId === selfId,
-				);
-				if (!bot) {
-					logger.warn("未找到对应的机器人：%s/%s", platform, selfId);
-					continue;
-				}
-				bot.sendMessage(channelId, content, guildId);
-			}
+			ctx.broadcast([content]);
 		}, config.interval);
 	});
 }
