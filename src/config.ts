@@ -7,6 +7,7 @@ export interface Config {
 	showDeletion: boolean;
 	showPublisher: boolean;
 	showDescription: boolean;
+	renderImage: boolean;
 }
 
 export const Config: Schema<Config> = Schema.object({
@@ -28,4 +29,7 @@ export const Config: Schema<Config> = Schema.object({
 	showDescription: Schema.boolean()
 		.default(false)
 		.description("是否显示插件描述。"),
+	renderImage: Schema.boolean()
+		.default(true)
+		.description("是否将更新渲染为图片。需要安装 puppeteer 服务。"),
 });
