@@ -63,9 +63,9 @@ export function apply(ctx: Context, config: Config) {
             previous = current;
             if (!items.length) return;
 
-            const content = await renderDiff(ctx, items, config);
-            logger.info(`[插件市场更新] ${items.length} 项变更`);
-            ctx.broadcast([content]);
+			const content = await renderDiff(ctx, items, config);
+			logger.info(`[插件市场更新] ${items.length} 项变更`);
+			ctx.broadcast(content);
         }, config.interval);
     });
 }
