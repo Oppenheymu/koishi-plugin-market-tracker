@@ -9,6 +9,7 @@ export interface Target {
 export interface Config {
     endpoint: string;
     interval: number;
+    locale: string;
     renderImage: boolean;
     showOptions: string[];
     targets: Target[];
@@ -33,6 +34,9 @@ export const Config = Schema.object({
     interval: Schema.number()
         .default(Time.minute * 30)
         .description("轮询间隔（毫秒）。"),
+    locale: Schema.string()
+        .default("zh")
+        .description("推送消息使用的语言。"),
     renderImage: Schema.boolean()
         .default(true)
         .description("是否将更新渲染为图片。需要安装 puppeteer 服务。"),

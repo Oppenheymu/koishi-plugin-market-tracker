@@ -23,6 +23,7 @@ function describeError(error: unknown): string {
 
 export function apply(ctx: Context, config: Config) {
     ctx.i18n.define("zh", require("../locals/zh_CN"));
+    ctx.i18n.define("en", require("../locals/en"));
 
     const logger = ctx.logger("market-tracker");
 

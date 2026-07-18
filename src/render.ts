@@ -7,11 +7,19 @@ import type { DiffItem } from "./types";
 
 const template = readFileSync(resolve(__dirname, "template.html"), "utf-8");
 
-const TAGS: Record<DiffItem["type"], string> = {
-	added: "新增",
-	updated: "更新",
-	deleted: "删除",
+const TIME_LOCALE_MAP: Record<string, string> = {
+	zh: "zh-CN",
+	en: "en-US",
 };
+
+interface DiffTexts {
+	title: string;
+	textTitle: string;
+	added: string;
+	updated: string;
+	deleted: string;
+	footer: string;
+}
 
 function escapeHtml(str: string): string {
 	return str
@@ -21,7 +29,10 @@ function escapeHtml(str: string): string {
 		.replace(/"/g, "&quot;");
 }
 
-function renderItem(item: DiffItem): string {
+function renderItem(
+	item: DiffItem,
+	tags: Record<DiffItem["type"], string>,
+): string {
 	let version = "";
 	if (item.type === "updated" && item.version1 && item.version2) {
 		version = `<div class="item-version">${escapeHtml(item.version1)}<span class="arrow">→</span><span class="new">${escapeHtml(item.version2)}</span></div>`;
@@ -35,7 +46,7 @@ function renderItem(item: DiffItem): string {
 		publisher = `<div class="item-publisher">@${escapeHtml(item.publisher)}</div>`;
 	}
 	return `<div class="item ${item.type}">
-          <span class="item-tag">${TAGS[item.type]}</span>
+          <span class="item-tag">${escapeHtml(tags[item.type])}</span>
           <div class="item-body">
             <div class="item-name">${escapeHtml(item.name)}</div>
             ${version}${desc}${publisher}
@@ -43,8 +54,14 @@ function renderItem(item: DiffItem): string {
         </div>`;
 }
 
-function buildDiffHtml(items: DiffItem[], timestamp: Date): string {
-	const timeStr = timestamp.toLocaleString("zh-CN", {
+function buildDiffHtml(
+	items: DiffItem[],
+	timestamp: Date,
+	texts: DiffTexts,
+	timeLocale: string,
+	tags: Record<DiffItem["type"], string>,
+): string {
+	const timeStr = timestamp.toLocaleString(timeLocale, {
 		timeZone: "Asia/Shanghai",
 		year: "numeric",
 		month: "2-digit",
@@ -57,27 +74,36 @@ function buildDiffHtml(items: DiffItem[], timestamp: Date): string {
 	const deleted = items.filter((i) => i.type === "deleted").length;
 
 	return template
+		.replace(/<!--title-->/g, () => escapeHtml(texts.title))
 		.replace(/<!--time-->/g, () => timeStr)
+		.replace(/<!--label-added-->/g, () => escapeHtml(texts.added))
+		.replace(/<!--label-updated-->/g, () => escapeHtml(texts.updated))
+		.replace(/<!--label-deleted-->/g, () => escapeHtml(texts.deleted))
 		.replace(/<!--added-->/g, () => String(added))
 		.replace(/<!--updated-->/g, () => String(updated))
 		.replace(/<!--deleted-->/g, () => String(deleted))
-		.replace(/<!--items-->/g, () => items.map(renderItem).join(""))
-		.replace(/<!--total-->/g, () => String(items.length));
+		.replace(/<!--items-->/g, () =>
+			items.map((i) => renderItem(i, tags)).join(""),
+		)
+		.replace(/<!--footer-->/g, () => escapeHtml(texts.footer));
 }
 
-function formatDiffText(items: DiffItem[]): string {
+function formatDiffText(
+	items: DiffItem[],
+	tags: Record<DiffItem["type"], string>,
+): string {
 	return items
 		.map((item) => {
 			if (item.type === "added") {
-				let output = `新增：${item.name}`;
+				let output = `${tags.added}: ${item.name}`;
 				if (item.publisher) output += ` (@${item.publisher})`;
 				if (item.description) output += `\n  ${item.description}`;
 				return output;
 			}
 			if (item.type === "updated") {
-				return `更新：${item.name} (${item.version1} → ${item.version2})`;
+				return `${tags.updated}: ${item.name} (${item.version1} → ${item.version2})`;
 			}
-			return `删除：${item.name}`;
+			return `${tags.deleted}: ${item.name}`;
 		})
 		.join("\n");
 }
@@ -87,9 +113,27 @@ export async function renderDiff(
 	items: DiffItem[],
 	config: Config,
 ): Promise<string> {
+	const t = (path: string, params?: unknown) =>
+		ctx.i18n.text([config.locale], [path], params ?? []);
+
+	const tags: Record<DiffItem["type"], string> = {
+		added: t("market-tracker.added"),
+		updated: t("market-tracker.updated"),
+		deleted: t("market-tracker.deleted"),
+	};
+
 	if (config.renderImage) {
 		try {
-			const html = buildDiffHtml(items, new Date());
+			const texts: DiffTexts = {
+				title: t("market-tracker.title"),
+				textTitle: t("market-tracker.text-title"),
+				added: tags.added,
+				updated: tags.updated,
+				deleted: tags.deleted,
+				footer: t("market-tracker.footer", [items.length]),
+			};
+			const timeLocale = TIME_LOCALE_MAP[config.locale] ?? "en-US";
+			const html = buildDiffHtml(items, new Date(), texts, timeLocale, tags);
 			return await ctx.puppeteer.render(html, async (page, next) => {
 				await page.setViewport({
 					width: 600,
@@ -102,5 +146,5 @@ export async function renderDiff(
 			ctx.logger("market-tracker").warn("图片渲染失败，回退到文本模式", error);
 		}
 	}
-	return `[插件市场更新]\n${formatDiffText(items)}`;
+	return `${t("market-tracker.text-title")}\n${formatDiffText(items, tags)}`;
 }

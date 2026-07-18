@@ -15,7 +15,8 @@
     "./package.json": "./package.json"
   },
   "files": [
-    "lib"
+    "lib",
+    "locales"
   ],
   "license": "MIT",
   "publishConfig": {
@@ -40,8 +41,13 @@
   },
   "koishi": {
     "description": {
-      "en": "HELLO",
-      "zh": "由market-info启发制作的插件"
+      "es": "Rastreador de actualizaciones del mercado de plugins para Koishi",
+      "fr": "Suivi des mises à jour du marché de plugins pour Koishi",
+      "ja": "Koishi 用プラグイン市場更新トラッカー",
+      "de": "Plugin-Markt-Update-Tracker für Koishi",
+      "ru": "Отслеживание обновлений рынка плагинов для Koishi",
+      "en": "Plugin Market Update Tracker for Koishi",
+      "zh": "追踪 Koishi 插件市场更新并推送到指定群/频道"
     },
     "service": {}
   }
