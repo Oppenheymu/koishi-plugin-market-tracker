@@ -141,7 +141,7 @@ export function apply(ctx: Context, config: Config) {
 
         if (disposed) return;
 
-        ctx.command("market [name]").action(async ({ session }, name) => {
+        ctx.command("market-tracker [name]").action(async ({ session }, name) => {
             if (!session) return;
             if (!name) {
                 return session.text(".overview", [
