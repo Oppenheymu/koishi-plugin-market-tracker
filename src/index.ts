@@ -11,6 +11,15 @@ export const inject = {
 	optional: ["puppeteer"]
 };
 
+function describeError(error: unknown): string {
+	if (error instanceof Error) {
+		const cause = error.cause;
+		if (cause instanceof Error) return `${error.message}: ${cause.message}`;
+		return error.message;
+	}
+	return String(error);
+}
+
 export function apply(ctx: Context, config: Config) {
     ctx.i18n.define("zh", require("../locals/zh_CN"));
 
@@ -25,17 +34,34 @@ export function apply(ctx: Context, config: Config) {
         return dict;
     };
 
-    const getMarket = async () => {
-        const data = await ctx.http.get<SearchResult>(config.endpoint);
-        return makeDict(data);
-    };
+	const getMarket = async () => {
+		let lastError: unknown;
+		for (let attempt = 1; attempt <= 3; attempt++) {
+			try {
+				const data = await ctx.http.get<SearchResult>(config.endpoint, {
+					timeout: 30 * 1000,
+				});
+				return makeDict(data);
+			} catch (error) {
+				lastError = error;
+				if (attempt < 3) {
+					const delay = attempt * 2000;
+					logger.warn(
+						`拉取失败（第 ${attempt} 次）：${describeError(error)}，${delay / 1000} 秒后重试`,
+					);
+					await new Promise<void>((resolve) => setTimeout(resolve, delay));
+				}
+			}
+		}
+		throw lastError;
+	};
 
     ctx.on("ready", async () => {
         let previous: Dict<SearchObject> = {};
         try {
             previous = await getMarket();
         } catch (error) {
-            logger.warn("初始化插件市场数据失败", error);
+            logger.warn(`初始化插件市场数据失败：${describeError(error)}`);
         }
 
         ctx.command("market [name]").action(async ({ session }, name) => {
@@ -55,7 +81,7 @@ export function apply(ctx: Context, config: Config) {
             try {
                 current = await getMarket();
             } catch (error) {
-                logger.warn("拉取插件市场数据失败", error);
+                logger.warn(`拉取插件市场数据失败：${describeError(error)}`);
                 return;
             }
 
