@@ -20,11 +20,11 @@ export function computeDiff(
                     name,
                     version2,
                 };
-                if (config.showPublisher) {
+                if (config.showOptions.includes("publisher")) {
                     const username = current[name].package.publisher?.username;
                     if (username) item.publisher = username;
                 }
-                if (config.showDescription) {
+                if (config.showOptions.includes("description")) {
                     const description = current[name].manifest?.description;
                     if (description && typeof description === "object") {
                         item.description = description.zh || description.en;
@@ -44,7 +44,7 @@ export function computeDiff(
                 };
             }
 
-            if (config.showDeletion) {
+            if (config.showOptions.includes("deletion")) {
                 return {
                     type: "deleted",
                     name,

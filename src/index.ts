@@ -29,7 +29,7 @@ export function apply(ctx: Context, config: Config) {
     const makeDict = (result: SearchResult) => {
         const dict: Dict<SearchObject> = {};
         for (const object of result.objects) {
-            if (object.manifest?.hidden && !config.showHidden) continue;
+            if (object.manifest?.hidden && !config.showOptions.includes("hidden")) continue;
             dict[object.shortname] = object;
         }
         return dict;
