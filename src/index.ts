@@ -90,9 +90,28 @@ export function apply(ctx: Context, config: Config) {
             previous = current;
             if (!items.length) return;
 
-			const content = await renderDiff(ctx, items, config);
-			logger.info(`[插件市场更新] ${items.length} 项变更`);
-			ctx.broadcast(content);
+            const content = await renderDiff(ctx, items, config);
+            logger.info(`[插件市场更新] ${items.length} 项变更`);
+            for (const target of config.targets) {
+                const botId = target.selfId
+                    ? `${target.platform}:${target.selfId}`
+                    : target.platform;
+                const bot = ctx.bots.find(
+                    (b) => b.platform === target.platform
+                        && (!target.selfId || b.selfId === target.selfId),
+                );
+                if (!bot?.isActive) {
+                    logger.warn(`机器人 ${botId} 不可用，跳过 ${target.channelId}`);
+                    continue;
+                }
+                try {
+                    await bot.sendMessage(target.channelId, content);
+                } catch (error) {
+                    logger.warn(
+                        `推送到 ${target.platform}:${target.channelId} 失败：${describeError(error)}`,
+                    );
+                }
+            }
         }, config.interval);
     });
 }
