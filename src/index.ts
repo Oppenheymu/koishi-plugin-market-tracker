@@ -91,10 +91,13 @@ function describeError(error: unknown): string {
 }
 
 export function apply(ctx: Context, config: Config) {
-    ctx.i18n.define("zh", require("../locals/zh_CN"));
-    ctx.i18n.define("en", require("../locals/en"));
+    ctx.i18n.define("zh", require("../locales/zh_CN"));
+    ctx.i18n.define("en", require("../locales/en"));
 
     const logger = ctx.logger("market-tracker");
+
+    let disposed = false;
+    ctx.on("dispose", () => { disposed = true; });
 
     const makeDict = (result: SearchResult) => {
         const dict: Dict<SearchObject> = {};
@@ -121,6 +124,7 @@ export function apply(ctx: Context, config: Config) {
 						`拉取失败（第 ${attempt} 次）：${describeError(error)}，${delay / 1000} 秒后重试`,
 					);
 					await new Promise<void>((resolve) => setTimeout(resolve, delay));
+					if (disposed) throw lastError;
 				}
 			}
 		}
@@ -134,6 +138,8 @@ export function apply(ctx: Context, config: Config) {
         } catch (error) {
             logger.warn(`初始化插件市场数据失败：${describeError(error)}`);
         }
+
+        if (disposed) return;
 
         ctx.command("market [name]").action(async ({ session }, name) => {
             if (!session) return;
@@ -155,6 +161,8 @@ export function apply(ctx: Context, config: Config) {
                 logger.warn(`拉取插件市场数据失败：${describeError(error)}`);
                 return;
             }
+
+            if (disposed) return;
 
             const items = computeDiff(previous, current, config);
             previous = current;
