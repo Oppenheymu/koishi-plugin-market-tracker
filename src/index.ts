@@ -6,7 +6,10 @@ import { renderDiff } from "./render";
 
 export { Config };
 export const name = "market-tracker";
-export const inject = { optional: ["puppeteer"] };
+export const inject = { 
+	required: [ "database" ],
+	optional: ["puppeteer"]
+};
 
 export function apply(ctx: Context, config: Config) {
     ctx.i18n.define("zh", require("../locals/zh_CN"));
