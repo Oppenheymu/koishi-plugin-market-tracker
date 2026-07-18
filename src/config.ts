@@ -8,7 +8,7 @@ export interface Target {
 
 export interface Config {
     endpoint: string;
-    interval: number;
+    pushInterval: number;
     locale: string;
     renderImage: boolean;
     showOptions: string[];
@@ -31,9 +31,9 @@ export const Config = Schema.object({
     endpoint: Schema.string()
         .default("https://registry.koishi.chat/index.json")
         .description("插件市场地址。"),
-    interval: Schema.number()
-        .default(Time.minute * 30)
-        .description("轮询间隔（毫秒）。"),
+    pushInterval: Schema.number()
+        .default(Time.hour)
+        .description("推送间隔（毫秒）。插件市场每 5 分钟拉取一次，变更缓存后按此间隔集中推送。"),
     locale: Schema.string()
         .default("zh")
         .description("推送消息使用的语言。"),

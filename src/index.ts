@@ -1,6 +1,7 @@
 
 import type { SearchObject, SearchResult } from "@koishijs/registry";
 import type { Context, Dict } from "koishi";
+import type {} from "koishi-plugin-cron-fix";
 import { Config } from "./config";
 import { computeDiff } from "./diff";
 import { renderDiff } from "./render";
@@ -51,11 +52,6 @@ export const usage = `
     <h2 style="margin-top: 0; color: #52c41a;">🙏 鸣谢</h2>
     <p>本项目由官方插件 <a href="https://github.com/koishijs/koishi-plugin-market-info#readme" style="color:#52c41a;text-decoration:none;"><strong>koishi-plugin-market-info</strong></a> 改进，特此鸣谢</p>
   </div>
-  <div style="border-radius: 10px; border: 1px solid #ddd; padding: 16px; margin-bottom: 20px; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">
-    <h2 style="margin-top: 0; color: #4a6ee0;">💬 交流与反馈</h2>
-    <p>🌟 喜欢这个插件？欢迎加入 QQ 群 <a href="https://qm.qq.com/q/WngX4RQoca" style="color:#4a6ee0;text-decoration:none;"><strong>1071284605</strong></a>【晓基地插件工坊】进行交流</p>
-    <p>🐛 遇到问题？欢迎在群内反馈，或点击 <a href="https://qm.qq.com/q/WngX4RQoca" style="color:#4a6ee0;text-decoration:none;">此链接</a> 加入群聊</p>
-  </div>
 </div>
 
 <div class="mt-content-en">
@@ -68,16 +64,11 @@ export const usage = `
     <h2 style="margin-top: 0; color: #52c41a;">🙏 Credits</h2>
     <p>Improved from the official plugin <a href="https://github.com/koishijs/koishi-plugin-market-info#readme" style="color:#52c41a;text-decoration:none;"><strong>koishi-plugin-market-info</strong></a>. Special thanks.</p>
   </div>
-  <div style="border-radius: 10px; border: 1px solid #ddd; padding: 16px; margin-bottom: 20px; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">
-    <h2 style="margin-top: 0; color: #4a6ee0;">💬 Community & Feedback</h2>
-    <p>🌟 Love this plugin? Join QQ group <a href="https://qm.qq.com/q/WngX4RQoca" style="color:#4a6ee0;text-decoration:none;"><strong>1071284605</strong></a> [Xiaoji Plugin Workshop] for discussion.</p>
-    <p>🐛 Found a bug? Feel free to report in the group, or click <a href="https://qm.qq.com/q/WngX4RQoca" style="color:#4a6ee0;text-decoration:none;">this link</a> to join.</p>
-  </div>
 </div>
 `;
 
-export const inject = { 
-	required: [ "database" ],
+export const inject = {
+	required: [ "database", "cron" ],
 	optional: ["puppeteer"]
 };
 
@@ -132,41 +123,48 @@ export function apply(ctx: Context, config: Config) {
 	};
 
     ctx.on("ready", async () => {
-        let previous: Dict<SearchObject> = {};
+        let cycleStart: Dict<SearchObject> = {};
+        let latest: Dict<SearchObject> = {};
+
         try {
-            previous = await getMarket();
+            cycleStart = await getMarket();
+            latest = cycleStart;
         } catch (error) {
             logger.warn(`初始化插件市场数据失败：${describeError(error)}`);
         }
 
         if (disposed) return;
 
-        ctx.command("market-tracker [name]").action(async ({ session }, name) => {
+        ctx.command("market [name]").action(async ({ session }, name) => {
             if (!session) return;
             if (!name) {
                 return session.text(".overview", [
-                    Object.values(previous).length,
+                    Object.values(latest).length,
                 ]);
             }
-            const data = previous[name];
+            const data = latest[name];
             if (!data) return session.text(".not-found", [name]);
             return session.text(".detail", data);
         });
 
-        ctx.setInterval(async () => {
-            let current: Dict<SearchObject>;
+        // 拉取定时器：每 5 分钟更新 latest 快照
+        ctx.cron("*/5 * * * *", async () => {
             try {
-                current = await getMarket();
+                latest = await getMarket();
             } catch (error) {
                 logger.warn(`拉取插件市场数据失败：${describeError(error)}`);
-                return;
             }
+        });
 
+        // 推送定时器：按 pushInterval 集中推送缓存的变更
+        ctx.setInterval(async () => {
             if (disposed) return;
 
-            const items = computeDiff(previous, current, config);
-            previous = current;
+            const items = computeDiff(cycleStart, latest, config);
+            cycleStart = latest;
             if (!items.length) return;
+
+            if (disposed) return;
 
             const content = await renderDiff(ctx, items, config);
             logger.info(`[插件市场更新] ${items.length} 项变更`);
@@ -190,6 +188,6 @@ export function apply(ctx: Context, config: Config) {
                     );
                 }
             }
-        }, config.interval);
+        }, config.pushInterval);
     });
 }
