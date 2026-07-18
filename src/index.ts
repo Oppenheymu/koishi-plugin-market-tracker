@@ -1,10 +1,11 @@
 
 import type { SearchObject, SearchResult } from "@koishijs/registry";
-import type { Context, Dict } from "koishi";
+import { Time, type Context, type Dict } from "koishi";
 import type {} from "koishi-plugin-cron-fix";
 import { Config } from "./config";
 import { computeDiff } from "./diff";
 import { renderDiff } from "./render";
+import type { DiffItem } from "./types";
 
 export { Config };
 
@@ -147,25 +148,11 @@ export function apply(ctx: Context, config: Config) {
             return session.text(".detail", data);
         });
 
-        // 拉取定时器：每 5 分钟更新 latest 快照
-        ctx.cron("*/5 * * * *", async () => {
-            try {
-                latest = await getMarket();
-            } catch (error) {
-                logger.warn(`拉取插件市场数据失败：${describeError(error)}`);
-            }
-        });
+        const fetchInterval = config.fetchInterval;
 
-        // 推送定时器：按 pushInterval 集中推送缓存的变更
-        ctx.setInterval(async () => {
-            if (disposed) return;
-
-            const items = computeDiff(cycleStart, latest, config);
-            cycleStart = latest;
+        const pushUpdates = async (items: DiffItem[]) => {
             if (!items.length) return;
-
             if (disposed) return;
-
             const content = await renderDiff(ctx, items, config);
             logger.info(`[插件市场更新] ${items.length} 项变更`);
             for (const target of config.targets) {
@@ -188,6 +175,32 @@ export function apply(ctx: Context, config: Config) {
                     );
                 }
             }
-        }, config.pushInterval);
+        };
+
+        // 拉取定时器：按 fetchInterval 更新 latest 快照
+        ctx.cron(`*/${fetchInterval} * * * *`, async () => {
+            try {
+                latest = await getMarket();
+            } catch (error) {
+                logger.warn(`拉取插件市场数据失败：${describeError(error)}`);
+                return;
+            }
+            if (!config.batchPush) {
+                const items = computeDiff(cycleStart, latest, config);
+                cycleStart = latest;
+                await pushUpdates(items);
+            }
+        });
+
+        // 集中推送定时器：仅启用集中推送时生效
+        if (config.batchPush && config.pushInterval) {
+            const pushInterval = Math.max(config.pushInterval, fetchInterval);
+            ctx.setInterval(async () => {
+                if (disposed) return;
+                const items = computeDiff(cycleStart, latest, config);
+                cycleStart = latest;
+                await pushUpdates(items);
+            }, pushInterval * Time.minute);
+        }
     });
 }

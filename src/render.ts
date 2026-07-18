@@ -113,8 +113,9 @@ export async function renderDiff(
 	items: DiffItem[],
 	config: Config,
 ): Promise<string> {
+	const locale = ctx.i18n.fallback([])[0] ?? "zh";
 	const t = (path: string, params?: unknown) =>
-		ctx.i18n.text([config.locale], [path], params ?? []);
+		ctx.i18n.text([locale], [path], params ?? []);
 
 	const tags: Record<DiffItem["type"], string> = {
 		added: t("market-tracker.added"),
@@ -132,7 +133,7 @@ export async function renderDiff(
 				deleted: tags.deleted,
 				footer: t("market-tracker.footer", [items.length]),
 			};
-			const timeLocale = TIME_LOCALE_MAP[config.locale] ?? "en-US";
+			const timeLocale = TIME_LOCALE_MAP[locale] ?? "en-US";
 			const html = buildDiffHtml(items, new Date(), texts, timeLocale, tags);
 			return await ctx.puppeteer.render(html, async (page, next) => {
 				await page.setViewport({
