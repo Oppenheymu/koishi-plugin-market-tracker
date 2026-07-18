@@ -6,6 +6,7 @@ import { renderDiff } from "./render";
 
 export { Config };
 export const name = "market-tracker";
+
 export const inject = { 
 	required: [ "database" ],
 	optional: ["puppeteer"]
