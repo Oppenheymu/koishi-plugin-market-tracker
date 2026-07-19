@@ -1,6 +1,6 @@
 
 import type { SearchObject, SearchResult } from "@koishijs/registry";
-import { Time, type Context, type Dict } from "koishi";
+import type { Context, Dict } from "koishi";
 import type {} from "koishi-plugin-cron-fix";
 import { Config } from "./config";
 import { computeDiff } from "./diff";
@@ -192,15 +192,19 @@ export function apply(ctx: Context, config: Config) {
             }
         });
 
-        // 集中推送定时器：仅启用集中推送时生效
+        // 集中推送定时器：仅启用集中推送时生效，触发时刻对齐到小时整点
+        // 例如 pushInterval=30 → 每小时 0 分和 30 分触发；pushInterval=60 → 每小时 0 分触发
         if (config.batchPush && config.pushInterval) {
             const pushInterval = Math.max(config.pushInterval, fetchInterval);
-            ctx.setInterval(async () => {
+            const minutes: number[] = [];
+            for (let m = 0; m < 60; m += pushInterval) minutes.push(m);
+            const cronExpr = `${minutes.join(",")} * * * *`;
+            ctx.cron(cronExpr, async () => {
                 if (disposed) return;
                 const items = computeDiff(cycleStart, latest, config);
                 cycleStart = latest;
                 await pushUpdates(items);
-            }, pushInterval * Time.minute);
+            });
         }
     });
 }
